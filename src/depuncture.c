@@ -33,14 +33,13 @@
 #define OFFSET 128
 
 /* 0 is a "strong 0" and 255 is a "strong 1" */
-static inline int to_viterbi(int x)
+static inline int to_viterbi(uint8_t x)
 {
-#ifdef ENABLE_SPIRAL_VITERBI
-  return ((x == 0) ? 0 : 255);
-#else
-  return (OFFSET-1) + 2*x;
-#endif
+  // this must correspond to the "amp" parameter used in init_viterbi in viterbi.c
+  // x was assumed to be boolean, now it's a byte
+  return x;
 }
+
 
 void fic_depuncture(uint8_t *obuf, uint8_t *inbuf)
 {

@@ -1,8 +1,15 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include "sdr_fifo.h"
 
 
 /* http://en.wikipedia.org/wiki/Circular_buffer */
 
+void error(char * msg, int ctx, int arg) {
+  fprintf (stderr, "Error in sdr_fifo: %s (%d, %d)\n", msg, ctx, arg);
+  exit(2);
+}
 
 
 void cbInit(CircularBuffer *cb, uint32_t size) {
@@ -13,12 +20,12 @@ void cbInit(CircularBuffer *cb, uint32_t size) {
 }
 void cbFree(CircularBuffer *cb) {
     free(cb->elems);
-	}
+}
 
 int cbIsFull(CircularBuffer *cb) {
-    return cb->count == cb->size; 
-	}
- 
+    return cb->count == cb->size;
+}
+
 int cbIsEmpty(CircularBuffer *cb) {
     return cb->count == 0;
 	 }
@@ -70,12 +77,6 @@ void cbWriteBytes(CircularBuffer *cb, uint8_t *elems, size_t len) {
 	cb->count += len;
 }
 
-void cbRead(CircularBuffer *cb, uint8_t *elem) {
-    *elem = cb->elems[cb->start];
-    cb->start = (cb->start + 1) % cb->size;
-    -- cb->count;
-}
-
 void cbReadBytes(CircularBuffer *cb, uint8_t *elems, size_t len) {
 	size_t real_bytes = cb->count < len ? cb->count : len;
 
@@ -92,16 +93,57 @@ void cbReadBytes(CircularBuffer *cb, uint8_t *elems, size_t len) {
 	cb->count -= real_bytes;
 }
 
-int32_t sdr_read_fifo(CircularBuffer * fifo,uint32_t bytes,int32_t shift,uint8_t * buffer)
+void cbRead(CircularBuffer *cb, uint8_t *elem)
 {
-  if (shift>0)
-    {
-	  cbReadBytes(fifo, buffer, shift);
-	  cbReadBytes(fifo, buffer, bytes);
-    }
-  else {
-	  if(bytes + shift > 0)
-		  cbReadBytes(fifo, buffer, bytes + shift);
+  if (cbIsEmpty(cb)) {
+    error("buffer underflow on read", 0, 1);
   }
+  *elem = cb->elems[cb->start];
+  cb->start = (cb->start + 1) % cb->size;
+  cb->count--;
+}
+
+// just gets some old data back into the buffer
+// if you do this before you have ever added something, you will get init data
+void cbUnread(CircularBuffer *cb)
+{
+  if (cbIsFull(cb)) {
+    error("buffer overflow on unread", cb->count, 1);
+  }
+  cb->start = (cb->start - 1) % cb->size;
+  cb->count++;
+}
+
+
+int32_t sdr_read_fifo(CircularBuffer * fifo, uint32_t bytes, int32_t shift, uint8_t * buffer)
+{
+  if (shift > (int)fifo->count) {
+    error("fifo read underflow on shift", fifo->count, shift);
+  }
+  if ((int)fifo->count - shift > (int)fifo->size) {
+    error("fifo unread overflow on shift", fifo->count, shift);
+  }
+  fifo->start = (fifo->start + shift) % fifo->size;
+  fifo->count -= shift;
+
+
+  if (bytes > fifo->count) {
+    error("fifo read underflow on actual read", fifo->count, bytes);
+  }
+
+  /* uint32_t j=0; */
+  /* for (j=0; j<bytes; j++) */
+  /*   cbRead(fifo, &buffer[j]); */
+  unsigned restBuf = fifo->size - fifo->start;
+  if (bytes <= restBuf) {
+    memcpy(buffer, fifo->elems + fifo->start, bytes);
+  }
+  else {
+    memcpy(buffer, fifo->elems + fifo->start, restBuf);
+    memcpy(buffer + restBuf, fifo->elems, bytes - restBuf);
+  }
+  fifo->start = (fifo->start + bytes) % fifo->size;
+  fifo->count -= bytes;
+
   return 1;
 }

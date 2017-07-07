@@ -5,29 +5,32 @@
 #include <fftw3.h>
 
 #include "sdr_fifo.h"
+#include "dab_constants.h"
 
 #define DEFAULT_BUF_LENGTH (16 * 16384)
 #define GAIN_SETTLE_TIME 0
+
 
 struct sdr_state_t {
   uint32_t frequency;
   uint8_t input_buffer[DEFAULT_BUF_LENGTH];
   int input_buffer_len;
-  uint8_t buffer[196608*2];
+  uint8_t buffer[DAB_T_FRAME*2];
   int32_t coarse_timeshift;
   int32_t fine_timeshift;
   int32_t coarse_freq_shift;
   double fine_freq_shift;
   CircularBuffer fifo;
-  int8_t real[196608];
-  int8_t imag[196608];
-  float filt[196608-2662];
-  fftw_complex * dab_frame;
-  fftw_complex * prs_ifft;
-  fftw_complex * prs_conj_ifft;
-  fftw_complex * prs_syms;
+  int8_t real[DAB_T_FRAME];
+  int8_t imag[DAB_T_FRAME];
+  // was float filt[DAB_T_FRAME-2662]; -> moved into dab_coarse_time_sync
+  fftw_complex dab_frame[DAB_T_FRAME];
+  // not used
+  // fftw_complex * prs_ifft;
+  // fftw_complex * prs_conj_ifft;
+  // fftw_complex * prs_syms;
   /* raw symbols */
-  fftw_complex symbols[76][2048];
+  fftw_complex symbols[DAB_SYMBOLS_IN_FRAME][DAB_T_CS];
   /* symbols d-qpsk-ed */
   fftw_complex * symbols_d;
 
@@ -39,6 +42,11 @@ struct sdr_state_t {
   double p_e_prior_vitdec;
   double p_e_after_vitdec;
 };
+
+struct demapped_transmission_frame_t;
+
+void swap_blocks(int len, fftw_complex* sym);
+void samples_fft_swap(fftw_complex* samples, fftw_complex* symbols);
 
 int sdr_demod(struct demapped_transmission_frame_t *tf, struct sdr_state_t *sdr);
 void sdr_init(struct sdr_state_t *sdr);

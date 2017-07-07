@@ -45,6 +45,9 @@ unsigned int Poly615[] = { 042631, 047245, 073363, 056507, 077267, 064537 }; /* 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "tunables.h"
+
+
 #define NULL ((void *)0)
 
 /* There ought to be a more general way to do this efficiently ... */
@@ -454,9 +457,10 @@ unsigned int nbits	/* Number of output bits */
 //-----
 int init_viterbi()
 {
-    int amp = 1;
-    double noise = 1.0;
-
-    gen_met(mettab,amp,noise,0.,4);
-    return 0;
+  // values were 1 and 1.0
+  int amp = VITERBI_SCALE; // must match settings in depuncture.c:to_viterbi
+  double noise = VITERBI_NOISE; // was 1.0; note: some of the noise is because of puncturing
+  
+  gen_met(mettab, amp, noise, 0., 4);
+  return 0;
 }
